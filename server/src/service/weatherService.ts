@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import router from '../routes';
 dotenv.config();
 
 // Define an interface for the Coordinates object
@@ -18,6 +19,10 @@ interface Weather {
 }
 
 class WeatherService {
+  static async getWeatherByCity(cityName: string): Promise<{ current: Weather; future: any[] }> {
+    const weatherService = new WeatherService();
+    return await weatherService.getWeatherByCity(cityName);
+  }
   private API_BASE_URL = 'https://api.openweathermap.org/data/2.5';
   private API_KEY = process.env.API_KEY || 'YOUR_API_KEY';
 
@@ -99,4 +104,43 @@ const weatherData = await weatherService.getWeatherByCoordinates(coordinates);
 console.log(weatherData.current); // Current weather
 console.log(weatherData.future);  // 5-day forecast
 
+
+// Import HistoryService
+import HistoryService from '../service/historyService';
+
+router.get('/history', async (req, res) => {
+  try {
+      const history = await HistoryService.getSearchHistory();
+      res.status(200).json(history);
+  } catch (error) {
+      console.error('Error retrieving search history:', error);
+      res.status(500).json({ error: 'An error occurred while retrieving search history' });
+  }
+  router.post('/', async (req, res) => {
+    try {
+        const { cityName } = req.body;
+
+        if (!cityName) {
+            return res.status(400).json({ error: 'City name is required' });
+        }
+
+        const weatherData = await WeatherService.getWeatherByCity(cityName);
+
+        if (!weatherData) {
+            return res.status(404).json({ error: 'Weather data not found' });
+        }
+
+        await HistoryService.saveCityToHistory(cityName);
+
+        res.status(200).json({
+            message: 'Weather data retrieved successfully',
+            currentWeather: weatherData.current,
+            futureWeather: weatherData.future,
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
+});
 export default weatherService;
